@@ -52,7 +52,28 @@ class PhoneMixin(models.AbstractModel):
             raise UserError(_('Please enter at least 3 characters when searching a Phone/Mobile number.'))
 
         pattern = r'[\s\\./\(\)\-]'
-        if value.startswith('+') or value.startswith('00'):
+        if value.startswith('0') or value.startswith('+84'):
+            query = f"""
+                SELECT model.id
+                FROM {self._table} model
+                WHERE
+                    model.phone IS NOT NULL AND (
+                        REGEXP_REPLACE(model.phone, %s, '', 'g') ILIKE %s OR
+                        REGEXP_REPLACE(model.phone, %s, '', 'g') ILIKE %s
+                    ) OR
+                    model.mobile IS NOT NULL AND (
+                        REGEXP_REPLACE(model.mobile, %s, '', 'g') ILIKE %s OR
+                        REGEXP_REPLACE(model.mobile, %s, '', 'g') ILIKE %s
+                    );
+            """
+            term = re.sub(pattern, '', value[1 if value.startswith('0') else 3:]) + '%'
+            self._cr.execute(query, (
+                pattern, '0' + term,
+                pattern, '+84' + term,
+                pattern, '0' + term,
+                pattern, '+84' + term
+            ))
+        elif value.startswith('+') or value.startswith('00'):
             # searching on +32485112233 should also finds 0032485112233 (and vice versa)
             # we therefore remove it from input value and search for both of them in db
             query = f"""
